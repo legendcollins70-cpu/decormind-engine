@@ -1,0 +1,16 @@
+{
+  "name": "decormind-render-engine",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "DecorMind AI autonomous automation engine — runs hourly cycles via node-cron.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "cheerio": "^1.0.0",
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3"
+  }
+}
