@@ -431,4 +431,100 @@ export async function runCycle() {
       const pattern = await recentPatternCheck(supabase, settings.user_id, draft);
       if (!pattern.pass) {
         stats.failed++;
-        await saveFailureReport(supabase, set
+        await saveFailureReport(supabase, settings, product, "ai_quality_inspector", pattern.reason, 42, 58, { platform, contentType: posts.contentType });
+        await log("warning", `Mr Checky rejected ${platform} draft: ${pattern.reason}`, { mrChecky: true });
+        results[platform] = { status: "blocked_pattern" };
+        continue;
+      }
+      results[platform] = await processPlatform(supabase, settings, product, image, platform, posts[platform], stats, posts.contentType);
+      if (results[platform]?.status === "success") {
+        await markPlatformPosted(supabase, settings.user_id, platform, new Date());
+      }
+    }
+
+    const anyPosted = Object.values(results).some((r) => r?.status === "success");
+    if (anyPosted) {
+      success = true;
+      await supabase.from("decoramind_cycle_logs").insert({
+        user_id: settings.user_id,
+        cycle_number: cycleCount,
+        marketplace: product.marketplace,
+        product_name: product.name,
+        commission_rate: String(product.commission_rate),
+        image_url: image,
+        pinterest_status: results.Pinterest?.status || "n/a",
+        twitter_status: results.Twitter?.status || "n/a",
+        linkedin_status: results.LinkedIn?.status || "n/a",
+        facebook_status: results.Facebook?.status || "n/a",
+        instagram_content: posts.Instagram?.content || posts.Instagram?.caption || "",
+        youtube_content: posts.YouTube?.description || posts.YouTube?.content || "",
+        reddit_content: posts.Reddit?.body || posts.Reddit?.content || "",
+        mr_checky_status: stats.failed === 0 ? "all_passed" : "partial",
+        retry_count: attempt - 1,
+        notes: `Cycle #${cycleCount} complete | confidence ${validation.confidence}% | risk ${validation.risk}%`,
+      });
+    } else {
+      await saveFailureReport(supabase, settings, product, "storefront_inspector", "No platform accepted the post", validation.confidence, validation.risk, { attempt, results });
+      await log("warning", `Cycle #${cycleCount} attempt ${attempt} produced no successful posts.`);
+    }
+  }
+
+  // Periodic self-audit of already-approved products.
+  await selfAuditApprovedProducts(supabase, settings);
+
+  // If all 5 attempts failed, stop and wait for next scheduled cycle.
+  if (!success) {
+    await log("error", `All ${MAX_RETRIES} product attempts failed this cycle. Waiting for next scheduled cycle.`, { mrChecky: true });
+  }
+
+  // 8) Continuous learning — every 10 cycles analyse recent performance with Groq.
+  if (cycleCount % 10 === 0 && settings.groq_api_key) {
+    try {
+      const { data: recentPerformance } = await supabase
+        .from("decoramind_performance")
+        .select("*")
+        .eq("user_id", settings.user_id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${settings.groq_api_key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "mixtral-8x7b-32768",
+          messages: [{
+            role: "user",
+            content: `Analyze these recent post performances and identify patterns: ${JSON.stringify(recentPerformance)}. What content types performed best? What platforms showed most engagement? What topics resonated most? Return JSON with: topContentType, topPlatform, topTopics[], recommendations[].`,
+          }],
+          temperature: 0.4,
+          max_tokens: 600,
+        }),
+      });
+      const ai = await res.json();
+      const text = (ai.choices?.[0]?.message?.content || "").replace(/```json|```/g, "").trim();
+      await log("info", `Content Intelligence: ${text}`);
+    } catch (e) {
+      await log("warning", `Content Intelligence analysis failed: ${e.message}`);
+    }
+  }
+
+  // 9) Mr Checky summary at the end of every cycle
+  const summary = {
+    cycle: cycleCount,
+    passed: stats.passed,
+    failed: stats.failed,
+    duplicatesBlocked: stats.duplicatesBlocked,
+    spamBlocked: stats.spamBlocked,
+    totalSeconds: Math.max(1, Math.round((Date.now() - start) / 1000)),
+  };
+  cycleSummary(summary);
+  await log(stats.failed > 0 ? "warning" : "success", `Cycle #${cycleCount} finished in ${summary.totalSeconds}s`, {
+    mrChecky: true,
+    summary,
+  });
+
+  return summary;
+}
+
+export function getCycleCount() {
+  return cycleCount;
+}
