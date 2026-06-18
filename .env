@@ -1,0 +1,37 @@
+# DecorMind AI — Render Engine environment variables
+PORT=10000
+
+# AI
+GROQ_API_KEY=
+
+# Affiliate networks
+CJ_API_KEY=
+CJ_PUBLISHER_ID=
+SHAREASALE_API_TOKEN=
+SHAREASALE_AFFILIATE_ID=
+SHAREASALE_SECRET_KEY=
+
+# Make.com webhooks — ALL posting goes through Make.com (one scenario per platform)
+MAKE_PINTEREST_WEBHOOK_URL=
+MAKE_TWITTER_WEBHOOK_URL=
+MAKE_LINKEDIN_WEBHOOK_URL=
+MAKE_FACEBOOK_WEBHOOK_URL=
+MAKE_INSTAGRAM_WEBHOOK_URL=
+MAKE_YOUTUBE_WEBHOOK_URL=
+MAKE_REDDIT_WEBHOOK_URL=
+
+# Images
+UNSPLASH_ACCESS_KEY=
+
+# Supabase (service role for trusted writes)
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Security + logging
+TRIGGER_SECRET=
+APP_URL=
+VERCEL_API_URL=
+SERVICE_KEY=
+
+# Optional
+ACTIVE_NICHE=home decor
