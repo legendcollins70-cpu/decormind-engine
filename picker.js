@@ -31,3 +31,9 @@ export async function pickBest(products, settings) {
     } catch (e) {
       await log("warning", `Groq picker failed: ${e.message} — using score fallback`);
     }
+  }
+
+  const best = [...products].sort((a, b) => b.rating * b.commission_rate - a.rating * a.commission_rate)[0];
+  await log("info", `Score picker selected: ${best.name}`);
+  return best;
+}
