@@ -1,4 +1,4 @@
-# DecorMind AI — Render Engine
+DecorMind AI — Render Engine
 
 The autonomous automation engine. Runs an hourly `node-cron` job that scrapes
 top-rated products from **CJ Affiliate** and **ShareASale**, lets Groq AI pick
