@@ -1,63 +1,44 @@
-import * as cheerio from "cheerio";
-import { checkImage } from "./mrChecky.js";
-import { log } from "./logger.js";
+import fs from "fs";
+import path from "path";
 
-async function fromOgImage(pageUrl) {
+const LOG_DIR = path.resolve("./logs");
+if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
+
+export async function log(level, message, details = null, userId = null) {
+  const entry = { level, message, details, created_at: new Date().toISOString() };
+  console.log(`[${level.toUpperCase()}] ${message}`);
+
+  // Persist to local JSON
   try {
-    const res = await fetch(pageUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const $ = cheerio.load(html);
-    return $('meta[property="og:image"]').attr("content") || $('meta[name="twitter:image"]').attr("content") || null;
-  } catch {
-    return null;
+    const file = path.join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.json`);
+    const existing = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : [];
+    existing.push(entry);
+    fs.writeFileSync(file, JSON.stringify(existing, null, 2));
+  } catch (e) {
+    console.error("Local log write failed:", e.message);
+  }
+
+  // POST to Vercel /api/logs
+  if (process.env.VERCEL_API_URL && process.env.SERVICE_KEY) {
+    try {
+      await fetch(`${process.env.VERCEL_API_URL}/api/logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-service-key": process.env.SERVICE_KEY },
+        body: JSON.stringify({ level, message, details, user_id: userId }),
+      });
+    } catch (e) {
+      console.error("Remote log post failed:", e.message);
+    }
   }
 }
 
-async function fromMicrolink(pageUrl) {
+export function recentLogs() {
   try {
-    const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(pageUrl)}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.data?.image?.url || null;
+    const file = path.join(LOG_DIR, `${new Date().toISOString().slice(0, 10)}.json`);
+    return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : [];
   } catch {
-    return null;
+    return [];
   }
 }
 
-async function fromUnsplash(query, key) {
-  if (!key) return null;
-  try {
-    const res = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=landscape`,
-      { headers: { Authorization: `Client-ID ${key}` } }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.results?.[0]?.urls?.regular || null;
-  } catch {
-    return null;
-  }
-}
-
-// Returns a validated image URL — never returns an invalid one.
-export async function resolveImage(product, settings) {
-  const candidates = [];
-  if (product.image_url) candidates.push(product.image_url);
-  const page = product.sales_page_url || product.siteUrl;
-  if (page) {
-    const og = await fromOgImage(page);
-    if (og) candidates.push(og);
-    const ml = await fromMicrolink(page);
-    if (ml) candidates.push(ml);
-  }
-  const us = await fromUnsplash(`${product.niche} ${product.name}`, settings.unsplash_access_key);
-  if (us) candidates.push(us);
-
-  for (const url of candidates) {
-    const check = await checkImage(url);
-    if (check.pass) return url;
-  }
-  await log("warning", `No valid image found for ${product.name}`);
-  return null;
 }
