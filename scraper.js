@@ -92,3 +92,16 @@ async function scrapeShareASale(settings, niche) {
     return [];
   }
 }
+
+export async function scrapeProducts(settings) {
+  const niche = settings.active_niche || "home decor";
+  const [cj, sas] = await Promise.all([scrapeCJ(settings, niche), scrapeShareASale(settings, niche)]);
+  let products = [...cj, ...sas].filter((p) => p.rating >= 4.0 && p.image_url);
+  if (products.length === 0) {
+    await log("info", "Both APIs returned nothing — using fallback products. Never skip a cycle.");
+    const match = FALLBACK.filter((p) => p.niche === niche);
+    products = match.length ? match : FALLBACK;
+  }
+  await log("info", `Scraper collected ${products.length} products (4★+).`);
+  return products;
+}
