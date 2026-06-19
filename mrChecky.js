@@ -144,7 +144,7 @@ export async function masterCheck(type, data, supabase) {
   return { type, passed, checks, failReason: failed?.reason, log: logLines(type, checks, passed, failed?.reason) };
 }
 
-export function cycleSummaryLines(s) {
+export function cycleSummary(s) {
   return [
     `🤖 Mr Checky Summary for Cycle #${s.cycle}:`,
     `   ✅ Passed: ${s.passed} checks`,
