@@ -3,7 +3,7 @@ import { scrapeProducts } from "./scraper.js";
 import { pickBest } from "./picker.js";
 import { resolveImage } from "./imageScraper.js";
 import { writeAllPlatforms, buildAffiliateLink } from "./writer.js";
-import { masterCheck, checkDuplicate, cycleSummary } from "./mrChecky.js";
+import { masterCheck, checkDuplicate, cycleSummarylines } from "./mrChecky.js";
 import { postToPlatform, platformWebhooks } from "./poster.js";
 import { log } from "./logger.js";
 
